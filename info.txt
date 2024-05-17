@@ -1,0 +1,5 @@
+edge cases
+
+Dr. title: https://tg.chregister.ch/cr-portal/auszug/auszug.xhtml?uid=CHE-113.399.120
+Doppelte nachnamen: https://zh.chregister.ch/cr-portal/auszug/auszug.xhtml?uid=CHE-341.868.374
+prefix im nachnamen: https://zg.chregister.ch/cr-portal/auszug/auszug.xhtml?uid=CHE-317.401.567
