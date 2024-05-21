@@ -1,19 +1,74 @@
-// imports
-const { Builder, By, Key, until } = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
 
+import * as functions from 'firebase-functions';
+
+import * as express from 'express';
+//const { Builder, By, until } = require('selenium-webdriver');
+//const chrome = require('selenium-webdriver/chrome');
+
+
+// Initialize Express app
+//app.use(cors({ origin: true }));
+const app = express();
+
+app.use(express.json());
+
+app.get('/helloworld', (req:any, res:any) =>{
+    res.send({response: "Hello World"})
+})
+
+/*
+// GET endpoint
+app.get('/getcompanydata', async (req:any, res:any) => {
+  
+
+  let company = new Company(req.query.name)
+
+
+
+  await company.scrapeZefix();
+  await company.scrapeDomain();
+  await company.scrapeExcerpt();
+  await company.identifyAP();
+  await company.findEmail()
+
+
+  res.send({company: company});
+
+});
+*/
+
+
+
+/*
 
 // api
 let zefixAuth = btoa("moritz@kalteswasser.ch:GxGjq6hw")
 
 // class
 class Company {
-    constructor(proposedName) {
+
+    public proposedName: string;
+    public name?: string;
+    public uid?: string;
+    public excerpt?: string;
+    public legalForm?: string;
+    public canton?: string;
+    public addressLine1?: string;
+    public city?: string;
+    public zip?: string;
+    public domain?: string;
+    public revisionsstelle?: any;
+    public people?: any;
+    public ap?: number;
+
+
+
+    constructor(proposedName: string) {
         this.proposedName = proposedName;
     }
 
     async scrapeZefix() {
-        const zefixSearchResponse = await fetch('https://www.zefix.admin.ch/ZefixPublicREST/api/v1/company/search', {
+        const zefixSearchResponse:any = await fetch('https://www.zefix.admin.ch/ZefixPublicREST/api/v1/company/search', {
             method: 'POST',
             body: JSON.stringify({
                 "name": this.proposedName,
@@ -31,7 +86,7 @@ class Company {
 
         const zefixSearchData = await zefixSearchResponse.json();
 
-        let companies = zefixSearchData.filter((c) => c.legalForm.name.de !== "Zweigniederlassung")
+        let companies = zefixSearchData.filter((c: any) => c.legalForm.name.de !== "Zweigniederlassung")
 
         if (companies.length === 0) {
             throw new Error(`ZEFIX SEARCH: couldn't find company`)
@@ -74,7 +129,7 @@ class Company {
     async scrapeDomain() {
 
         let options = new chrome.Options();
-        options.addArguments(/*'--headless'*/); // Run Chrome in headless mode
+        options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -95,7 +150,7 @@ class Company {
             let fullDomain = new URL(firstResultUrl).hostname;
 
             // Funktion zur Entfernung der Subdomain
-            function extractRootDomain(domain) {
+            function extractRootDomain(domain:any) {
                 let parts = domain.split('.');
                 // Wenn die Domain drei Teile hat (z.B. www.example.com), entfernen Sie das erste Teil (Subdomain)
                 if (parts.length > 2) {
@@ -117,7 +172,7 @@ class Company {
         if (this.excerpt === undefined) throw new Error('SCRAPE EXCERPT: Excerpt is not defined')
 
         let options = new chrome.Options();
-        options.addArguments(/*'--headless'*/); // Run Chrome in headless mode
+        options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -241,7 +296,7 @@ class Company {
 
         if (this.ap === undefined) throw new Error("FIND EMAIL: No AP found")
 
-        const response = await fetch(`https://api.hunter.io/v2/email-finder?domain=${this.domain}&first_name=${this.people[this.ap].firstname}&last_name=${this.people[this.ap].lastname}&api_key=e4ed3daa0d4263b51a5b460249d55576572bab17`, {
+        const response:any = await fetch(`https://api.hunter.io/v2/email-finder?domain=${this.domain}&first_name=${this.people[this.ap].firstname}&last_name=${this.people[this.ap].lastname}&api_key=e4ed3daa0d4263b51a5b460249d55576572bab17`, {
             method: 'GET',
         });
 
@@ -262,40 +317,7 @@ class Company {
     }
 
 }
+*/
 
-const main = async () => {
-    let company = new Company("Clienia Littenheid AG")
-
-
-
-    await company.scrapeZefix();
-    await company.scrapeDomain();
-    await company.scrapeExcerpt();
-    await company.identifyAP();
-    await company.findEmail()
-
-}
-
-//main()
-
-
-const test = async () =>{
-    
-
-    
-    const response = await fetch(`https://europe-west6-lead-engine-c8d19.cloudfunctions.net/api/getcompanydata`, {
-        method: 'GET'
-    });
-
-    if (!response.ok) {
-        console.log(response)
-        throw new Error(`test failed`)
-    }
-
-    console.log(await response.json());
-
-}
-
-
-
-test()
+// Export the Express app as a Firebase Function
+exports.api = functions.region('us-central1').https.onRequest(app);
