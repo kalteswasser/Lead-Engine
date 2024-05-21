@@ -8,6 +8,8 @@ let zefixAuth = btoa("moritz@kalteswasser.ch:GxGjq6hw")
 
 // class
 class Company {
+
+
     constructor(proposedName) {
         this.proposedName = proposedName;
     }
@@ -26,7 +28,7 @@ class Company {
         });
 
         if (!zefixSearchResponse.ok) {
-            throw new Error(`ZEFIX SEARCH: fetch request failed: ${zefixSearchResponse.response}`)
+            throw new Error(`ZEFIX SEARCH: fetch request failed: ${zefixSearchResponse.status} ${zefixSearchResponse.statusText}`)
         }
 
         const zefixSearchData = await zefixSearchResponse.json();
@@ -34,7 +36,7 @@ class Company {
         let companies = zefixSearchData.filter((c) => c.legalForm.name.de !== "Zweigniederlassung")
 
         if (companies.length === 0) {
-            throw new Error(`ZEFIX SEARCH: couldn't find company`)
+            throw new Error(`ZEFIX SEARCH: couldn't find any results with the searchterm ${this.proposedName}`)
         }
 
 
@@ -54,7 +56,7 @@ class Company {
         });
 
         if (!HRSearchResponse.ok) {
-            throw new Error(`ZEFIX EXCERPT: fetch request failed: ${HRSearchResponse.status}`)
+            throw new Error(`ZEFIX EXCERPT: fetch request failed: ${HRSearchResponse.status} ${HRSearchResponse.statusText}`)
         }
 
         const HRSearchData = await HRSearchResponse.json();
@@ -74,7 +76,7 @@ class Company {
     async scrapeDomain() {
 
         let options = new chrome.Options();
-        options.addArguments(/*'--headless'*/); // Run Chrome in headless mode
+        options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -87,12 +89,25 @@ class Company {
             // Warten, bis die Suchergebnisse geladen sind
             await driver.wait(until.elementLocated(By.css('.eVNpHGjtxRBq_gLOfGDr')), 10000);
 
-            // Holen Sie sich den ersten Link aus den Suchergebnissen
-            let firstResult = await driver.findElement(By.css('.eVNpHGjtxRBq_gLOfGDr'));
-            let firstResultUrl = await firstResult.getAttribute('href');
+            let results = await driver.findElements(By.css('.eVNpHGjtxRBq_gLOfGDr'));
+
+            let bestResultUrl;
+
+            let blacklisted = ['linkedin', 'instagram', 'facebook', 'moneyhouse', 'search', 'youtube', 'startup']
+
+            loop: for (let result of results) {
+                let href = await result.getAttribute('href')
+                console.log(href)
+                for (let element of blacklisted) {
+                    if (href.includes(element)) continue loop;
+                }
+                bestResultUrl = href;
+                break;
+
+            }
 
             // Extrahieren Sie die Domain aus der URL
-            let fullDomain = new URL(firstResultUrl).hostname;
+            let fullDomain = new URL(bestResultUrl).hostname;
 
             // Funktion zur Entfernung der Subdomain
             function extractRootDomain(domain) {
@@ -105,7 +120,6 @@ class Company {
             }
 
             this.domain = extractRootDomain(fullDomain);
-
         } finally {
             // Beenden Sie die WebDriver-Sitzung
             await driver.quit();
@@ -117,7 +131,7 @@ class Company {
         if (this.excerpt === undefined) throw new Error('SCRAPE EXCERPT: Excerpt is not defined')
 
         let options = new chrome.Options();
-        options.addArguments(/*'--headless'*/); // Run Chrome in headless mode
+        options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -239,23 +253,21 @@ class Company {
 
     async findEmail() {
 
-        if (this.ap === undefined) throw new Error("FIND EMAIL: No AP found")
+        if (this.ap === undefined) throw new Error("FIND EMAIL: AP is not defined")
 
         const response = await fetch(`https://api.hunter.io/v2/email-finder?domain=${this.domain}&first_name=${this.people[this.ap].firstname}&last_name=${this.people[this.ap].lastname}&api_key=e4ed3daa0d4263b51a5b460249d55576572bab17`, {
             method: 'GET',
         });
 
-        console.log(response)
-        console.log(JSON.stringify(response))
-
         if (!response.ok) {
-            throw new Error('FIND EMAIL: Hunter fetch request failed: '+ JSON.stringify(response))
+            console.log(response)
+            throw new Error(`FIND EMAIL: Hunter fetch request failed: ${response.status} ${response.statusText}`)
         }
 
         const data = await response.json();
 
         if (data.data.email === null) {
-            throw new Error(`FIND EMAIL: Hunter couldn't find E-Mail`)
+            throw new Error(`FIND EMAIL: Hunter couldn't find E-Mail for ${JSON.stringify(this.people[this.ap])}`)
         }
 
         this.people[this.ap].email = {
@@ -263,11 +275,10 @@ class Company {
             score: data.data.score
         }
     }
-
 }
 
 const main = async () => {
-    let company = new Company("Sunrise GmbH")
+    let company = new Company("KaltesWasser GmbH")
 
 
 
@@ -275,9 +286,10 @@ const main = async () => {
     await company.scrapeDomain();
     await company.scrapeExcerpt();
     await company.identifyAP();
+    
+    console.log(company.domain)
     await company.findEmail()
 
-    console.log(company)
 }
 
 main()

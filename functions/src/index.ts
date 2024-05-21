@@ -33,9 +33,6 @@ app.get('/getcompanydata', async (req: any, res: any) => {
         res.send({ company: company });
     }
     catch (error:any) {
-
-
-        console.log(error)
         res.status(500).json({ 
             error: error.message,
             company: company 
@@ -145,12 +142,23 @@ class Company {
             // Warten, bis die Suchergebnisse geladen sind
             await driver.wait(until.elementLocated(By.css('.eVNpHGjtxRBq_gLOfGDr')), 10000);
 
-            // Holen Sie sich den ersten Link aus den Suchergebnissen
-            let firstResult = await driver.findElement(By.css('.eVNpHGjtxRBq_gLOfGDr'));
-            let firstResultUrl = await firstResult.getAttribute('href');
+            let results = await driver.findElements(By.css('.eVNpHGjtxRBq_gLOfGDr'));
+
+            let bestResultUrl;
+
+            let blacklisted = ['linkedin', 'instagram', 'facebook', 'moneyhouse', 'search', 'youtube', 'startup']
+
+            loop: for (let result of results){
+                let href = await result.getAttribute('href')
+                for (let element of blacklisted){
+                    if (href.includes(element)) continue loop;
+                }
+                bestResultUrl = href;
+                break;
+            }
 
             // Extrahieren Sie die Domain aus der URL
-            let fullDomain = new URL(firstResultUrl).hostname;
+            let fullDomain = new URL(bestResultUrl).hostname;
 
             // Funktion zur Entfernung der Subdomain
             function extractRootDomain(domain: any) {
@@ -319,7 +327,6 @@ class Company {
             score: data.data.score
         }
     }
-
 }
 
 
