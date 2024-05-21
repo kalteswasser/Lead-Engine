@@ -2,8 +2,8 @@
 import * as functions from 'firebase-functions';
 
 import * as express from 'express';
-//const { Builder, By, until } = require('selenium-webdriver');
-//const chrome = require('selenium-webdriver/chrome');
+const { Builder, By, until } = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
 
 
 // Initialize Express app
@@ -12,34 +12,37 @@ const app = express();
 
 app.use(express.json());
 
-app.get('/helloworld', (req:any, res:any) =>{
-    res.send({response: "Hello World"})
+app.get('/helloworld', (req: any, res: any) => {
+    res.send({ response: "Hello World" })
 })
 
-/*
+
 // GET endpoint
-app.get('/getcompanydata', async (req:any, res:any) => {
-  
+app.get('/getcompanydata', async (req: any, res: any) => {
 
-  let company = new Company(req.query.name)
+    let company = new Company(req.query.name)
 
-
-
-  await company.scrapeZefix();
-  await company.scrapeDomain();
-  await company.scrapeExcerpt();
-  await company.identifyAP();
-  await company.findEmail()
+    try {
+        await company.scrapeZefix();
+        await company.scrapeDomain();
+        await company.scrapeExcerpt();
+        await company.identifyAP();
+        await company.findEmail()
 
 
-  res.send({company: company});
+        res.send({ company: company });
+    }
+    catch (error:any) {
+
+
+        console.log(error)
+        res.status(500).json({ 
+            error: error.message,
+            company: company 
+        });
+    }
 
 });
-*/
-
-
-
-/*
 
 // api
 let zefixAuth = btoa("moritz@kalteswasser.ch:GxGjq6hw")
@@ -68,7 +71,7 @@ class Company {
     }
 
     async scrapeZefix() {
-        const zefixSearchResponse:any = await fetch('https://www.zefix.admin.ch/ZefixPublicREST/api/v1/company/search', {
+        const zefixSearchResponse: any = await fetch('https://www.zefix.admin.ch/ZefixPublicREST/api/v1/company/search', {
             method: 'POST',
             body: JSON.stringify({
                 "name": this.proposedName,
@@ -81,7 +84,7 @@ class Company {
         });
 
         if (!zefixSearchResponse.ok) {
-            throw new Error(`ZEFIX SEARCH: fetch request failed: ${zefixSearchResponse.response}`)
+            throw new Error(`ZEFIX SEARCH: fetch request failed: ${zefixSearchResponse.status} ${zefixSearchResponse.statusText}`)
         }
 
         const zefixSearchData = await zefixSearchResponse.json();
@@ -89,7 +92,7 @@ class Company {
         let companies = zefixSearchData.filter((c: any) => c.legalForm.name.de !== "Zweigniederlassung")
 
         if (companies.length === 0) {
-            throw new Error(`ZEFIX SEARCH: couldn't find company`)
+            throw new Error(`ZEFIX SEARCH: couldn't find any results with the searchterm ${this.proposedName}`)
         }
 
 
@@ -109,7 +112,7 @@ class Company {
         });
 
         if (!HRSearchResponse.ok) {
-            throw new Error(`ZEFIX EXCERPT: fetch request failed: ${HRSearchResponse.status}`)
+            throw new Error(`ZEFIX EXCERPT: fetch request failed: ${HRSearchResponse.status} ${HRSearchResponse.statusText}`)
         }
 
         const HRSearchData = await HRSearchResponse.json();
@@ -150,7 +153,7 @@ class Company {
             let fullDomain = new URL(firstResultUrl).hostname;
 
             // Funktion zur Entfernung der Subdomain
-            function extractRootDomain(domain:any) {
+            function extractRootDomain(domain: any) {
                 let parts = domain.split('.');
                 // Wenn die Domain drei Teile hat (z.B. www.example.com), entfernen Sie das erste Teil (Subdomain)
                 if (parts.length > 2) {
@@ -294,20 +297,21 @@ class Company {
 
     async findEmail() {
 
-        if (this.ap === undefined) throw new Error("FIND EMAIL: No AP found")
+        if (this.ap === undefined) throw new Error("FIND EMAIL: AP is not defined")
 
-        const response:any = await fetch(`https://api.hunter.io/v2/email-finder?domain=${this.domain}&first_name=${this.people[this.ap].firstname}&last_name=${this.people[this.ap].lastname}&api_key=e4ed3daa0d4263b51a5b460249d55576572bab17`, {
+        const response: any = await fetch(`https://api.hunter.io/v2/email-finder?domain=${this.domain}&first_name=${this.people[this.ap].firstname}&last_name=${this.people[this.ap].lastname}&api_key=e4ed3daa0d4263b51a5b460249d55576572bab17`, {
             method: 'GET',
         });
 
         if (!response.ok) {
-            throw new Error(`FIND EMAIL: Hunter fetch request failed: ${response.response}`)
+            console.log(response)
+            throw new Error(`FIND EMAIL: Hunter fetch request failed: ${response.status} ${response.statusText}`)
         }
 
         const data = await response.json();
 
         if (data.data.email === null) {
-            throw new Error(`FIND EMAIL: Hunter couldn't find E-Mail`)
+            throw new Error(`FIND EMAIL: Hunter couldn't find E-Mail for ${JSON.stringify(this.people[this.ap])}`)
         }
 
         this.people[this.ap].email = {
@@ -317,7 +321,7 @@ class Company {
     }
 
 }
-*/
+
 
 // Export the Express app as a Firebase Function
-exports.api = functions.region('us-central1').https.onRequest(app);
+exports.api = functions.region('europe-west6').runWith({ memory: '1GB' }).https.onRequest(app);

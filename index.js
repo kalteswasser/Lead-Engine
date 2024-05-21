@@ -245,8 +245,11 @@ class Company {
             method: 'GET',
         });
 
+        console.log(response)
+        console.log(JSON.stringify(response))
+
         if (!response.ok) {
-            throw new Error(`FIND EMAIL: Hunter fetch request failed: ${response.response}`)
+            throw new Error('FIND EMAIL: Hunter fetch request failed: '+ JSON.stringify(response))
         }
 
         const data = await response.json();
@@ -264,7 +267,7 @@ class Company {
 }
 
 const main = async () => {
-    let company = new Company("Clienia Littenheid AG")
+    let company = new Company("Sunrise GmbH")
 
 
 
@@ -274,11 +277,12 @@ const main = async () => {
     await company.identifyAP();
     await company.findEmail()
 
+    console.log(company)
 }
 
-//main()
+main()
 
-
+/*
 const test = async () =>{
     
 
@@ -299,3 +303,4 @@ const test = async () =>{
 
 
 test()
+*/
