@@ -32,10 +32,10 @@ app.get('/getcompanydata', async (req: any, res: any) => {
 
         res.send({ company: company });
     }
-    catch (error:any) {
-        res.status(500).json({ 
+    catch (error: any) {
+        res.status(500).json({
             error: error.message,
-            company: company 
+            company: company
         });
     }
 
@@ -60,7 +60,7 @@ class Company {
     public revisionsstelle?: any;
     public people?: any;
     public ap?: number;
-
+    public purpose?: number;
 
 
     constructor(proposedName: string) {
@@ -137,31 +137,43 @@ class Company {
 
         try {
             // Navigieren zu Google
-            await driver.get(`https://duckduckgo.com/?t=h_&q=${this.name}`);
+            await driver.get(`https://www.google.com/search?q=${this.name}`);
+
+
+            // Check for the cookie consent window and handle it
+            try {
+                let consentButton = await driver.findElement(By.id('L2AGLb'));
+                await consentButton.click();
+            } catch (e) {
+                console.log("cookie consent handeled")
+            }
+
 
             // Warten, bis die Suchergebnisse geladen sind
-            await driver.wait(until.elementLocated(By.css('.eVNpHGjtxRBq_gLOfGDr')), 10000);
+            await driver.wait(until.elementLocated(By.css('div.yuRUbf a')), 10000);
 
-            let results = await driver.findElements(By.css('.eVNpHGjtxRBq_gLOfGDr'));
+
+            let results = await driver.findElements(By.css('div.yuRUbf a'));
 
             let bestResultUrl;
 
             let blacklisted = ['linkedin', 'instagram', 'facebook', 'moneyhouse', 'search', 'youtube', 'startup']
 
-            loop: for (let result of results){
+            loop: for (let result of results) {
                 let href = await result.getAttribute('href')
-                for (let element of blacklisted){
+                for (let element of blacklisted) {
                     if (href.includes(element)) continue loop;
                 }
                 bestResultUrl = href;
                 break;
+
             }
 
             // Extrahieren Sie die Domain aus der URL
             let fullDomain = new URL(bestResultUrl).hostname;
 
             // Funktion zur Entfernung der Subdomain
-            function extractRootDomain(domain: any) {
+            function extractRootDomain(domain:any) {
                 let parts = domain.split('.');
                 // Wenn die Domain drei Teile hat (z.B. www.example.com), entfernen Sie das erste Teil (Subdomain)
                 if (parts.length > 2) {
@@ -171,7 +183,6 @@ class Company {
             }
 
             this.domain = extractRootDomain(fullDomain);
-
         } finally {
             // Beenden Sie die WebDriver-Sitzung
             await driver.quit();
@@ -260,7 +271,7 @@ class Company {
 
                             let cantons = ["AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR", "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG", "TI", "UR", "VD", "VS", "ZG", "ZH", "CH"]
 
-                            if (!cantons.includes(code)) swiss = false;
+                            if (!cantons.includes(code)&& code.length === 2) swiss = false;
                         }
 
                         this.people.push({
@@ -275,6 +286,17 @@ class Company {
                     }
                 }
             }
+
+            let zweckElement = await driver.wait(until.elementLocated(By.xpath("//*[contains(text(), 'Zweck')]")), 10000);
+            
+            // Get the 4th parent of that element
+            let zweckFourthParent = await zweckElement.findElement(By.xpath("ancestor::*[4]"));
+
+            // Get the child element with the tag 'tbody' from the 4th parent
+            let zweckParentElement = await zweckFourthParent.findElement(By.xpath(".//tbody/tr/td[3]"));
+
+
+            this.purpose =await zweckParentElement.getText()
 
         } finally {
 
@@ -319,13 +341,18 @@ class Company {
         const data = await response.json();
 
         if (data.data.email === null) {
-            throw new Error(`FIND EMAIL: Hunter couldn't find E-Mail for ${JSON.stringify(this.people[this.ap])}`)
+            this.people[this.ap].email = {
+                address: "",
+                score: 0
+            }
+        }else{
+            this.people[this.ap].email = {
+                address: data.data.email,
+                score: data.data.score
+            }
         }
 
-        this.people[this.ap].email = {
-            address: data.data.email,
-            score: data.data.score
-        }
+
     }
 }
 

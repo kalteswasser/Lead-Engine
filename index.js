@@ -1,6 +1,7 @@
 // imports
 const { Builder, By, Key, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
+const { setTimeout } = require("timers/promises")
 
 
 // api
@@ -76,7 +77,7 @@ class Company {
     async scrapeDomain() {
 
         let options = new chrome.Options();
-        options.addArguments('--headless'); // Run Chrome in headless mode
+        //options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -84,12 +85,23 @@ class Company {
 
         try {
             // Navigieren zu Google
-            await driver.get(`https://duckduckgo.com/?t=h_&q=${this.name}`);
+            await driver.get(`https://www.google.com/search?q=${this.name}`);
+
+
+            // Check for the cookie consent window and handle it
+            try {
+                let consentButton = await driver.findElement(By.id('L2AGLb'));
+                await consentButton.click();
+            } catch (e) {
+                console.log("cookie consent handeled")
+            }
+
 
             // Warten, bis die Suchergebnisse geladen sind
-            await driver.wait(until.elementLocated(By.css('.eVNpHGjtxRBq_gLOfGDr')), 10000);
+            await driver.wait(until.elementLocated(By.css('div.yuRUbf a')), 10000);
 
-            let results = await driver.findElements(By.css('.eVNpHGjtxRBq_gLOfGDr'));
+
+            let results = await driver.findElements(By.css('div.yuRUbf a'));
 
             let bestResultUrl;
 
@@ -97,7 +109,6 @@ class Company {
 
             loop: for (let result of results) {
                 let href = await result.getAttribute('href')
-                console.log(href)
                 for (let element of blacklisted) {
                     if (href.includes(element)) continue loop;
                 }
@@ -131,7 +142,7 @@ class Company {
         if (this.excerpt === undefined) throw new Error('SCRAPE EXCERPT: Excerpt is not defined')
 
         let options = new chrome.Options();
-        options.addArguments('--headless'); // Run Chrome in headless mode
+        //options.addArguments('--headless'); // Run Chrome in headless mode
         let driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
@@ -208,7 +219,7 @@ class Company {
 
                             let cantons = ["AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR", "JU", "LU", "NE", "NW", "OW", "SG", "SH", "SO", "SZ", "TG", "TI", "UR", "VD", "VS", "ZG", "ZH", "CH"]
 
-                            if (!cantons.includes(code)) swiss = false;
+                            if (!cantons.includes(code) && code.length === 2) swiss = false;
                         }
 
                         this.people.push({
@@ -224,6 +235,22 @@ class Company {
                 }
             }
 
+
+
+            let zweckElement = await driver.wait(until.elementLocated(By.xpath("//*[contains(text(), 'Zweck')]")), 10000);
+            
+            // Get the 4th parent of that element
+            let zweckFourthParent = await zweckElement.findElement(By.xpath("ancestor::*[4]"));
+
+            // Get the child element with the tag 'tbody' from the 4th parent
+            let zweckParentElement = await zweckFourthParent.findElement(By.xpath(".//tbody/tr/td[3]"));
+
+
+            this.purpose =await zweckParentElement.getText()
+
+
+
+
         } finally {
 
             await driver.quit()
@@ -233,7 +260,7 @@ class Company {
 
     async identifyAP() {
         let functions = ['Inhaber', 'Vorsitzender der Geschäftsleitung', 'Generaldirektor', 'Direktor', 'Vorsitzender der Geschäftsführung', 'Geschäftsführer', 'Geschäftsführerin', 'Präsident des Verwaltungsrates', 'Präsidentin des Verwaltungsrates', 'Präsident des Stiftungsrates', 'Präsident', 'Mitglied des Verwaltungsrates', 'Mitglied', 'Mitglied der Geschäftsleitung', 'Mitglied der Direktion', ''];
-        let signatures = ["Einzelunterschrift", "Einzelprokura", "Kollektivunterschrift zu zweien"]
+        let signatures = ["Einzelunterschrift", "Einzelprokura", "Kollektivunterschrift zu zweien"/*, "Unterschrift zu zweien"*/]
 
 
         loop: for (let signature of signatures) {
@@ -278,17 +305,22 @@ class Company {
 }
 
 const main = async () => {
-    let company = new Company("KaltesWasser GmbH")
+    let company = new Company("RT-Fit & RT-Physio")
 
 
+    
 
     await company.scrapeZefix();
     await company.scrapeDomain();
     await company.scrapeExcerpt();
+
+    console.log(company)
+
     await company.identifyAP();
-    
-    console.log(company.domain)
-    await company.findEmail()
+
+    console.log(company.ap)
+
+    //await company.findEmail()
 
 }
 
